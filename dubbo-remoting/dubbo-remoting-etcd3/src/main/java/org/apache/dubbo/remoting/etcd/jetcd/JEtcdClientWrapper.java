@@ -47,6 +47,7 @@ import io.grpc.stub.StreamObserver;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -112,7 +113,7 @@ public class JEtcdClientWrapper {
 
     private volatile boolean cancelKeepAlive = false;
 
-    public static final Charset UTF_8 = Charset.forName("UTF-8");
+    public static final Charset CHARSET = StandardCharsets.UTF_8;
 
     public JEtcdClientWrapper(URL url) {
         this.url = url;
@@ -184,12 +185,12 @@ public class JEtcdClientWrapper {
                         requiredNotNull(client, failed);
                         int len = path.length();
                         return client.getKVClient()
-                                .get(ByteSequence.from(path, UTF_8),
-                                        GetOption.newBuilder().withPrefix(ByteSequence.from(path, UTF_8)).build())
+                                .get(ByteSequence.from(path, CHARSET),
+                                        GetOption.newBuilder().withPrefix(ByteSequence.from(path, CHARSET)).build())
                                 .get(DEFAULT_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS)
                                 .getKvs().stream().parallel()
                                 .filter(pair -> {
-                                    String key = pair.getKey().toString(UTF_8);
+                                    String key = pair.getKey().toString(CHARSET);
                                     int index = len, count = 0;
                                     if (key.length() > len) {
                                         for (; (index = key.indexOf(PATH_SEPARATOR, index)) != -1; ++index) {
@@ -200,7 +201,7 @@ public class JEtcdClientWrapper {
                                     }
                                     return count == 1;
                                 })
-                                .map(pair -> pair.getKey().toString(UTF_8))
+                                .map(pair -> pair.getKey().toString(CHARSET))
                                 .collect(toList());
                     }, retryPolicy);
         } catch (Exception e) {
@@ -266,7 +267,7 @@ public class JEtcdClientWrapper {
                     () -> {
                         requiredNotNull(client, failed);
                         return client.getKVClient()
-                                .get(ByteSequence.from(path, UTF_8), GetOption.newBuilder().withCountOnly(true).build())
+                                .get(ByteSequence.from(path, CHARSET), GetOption.newBuilder().withCountOnly(true).build())
                                 .get(DEFAULT_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS)
                                 .getCount() > 0;
                     }, retryPolicy);
@@ -284,10 +285,10 @@ public class JEtcdClientWrapper {
                     () -> {
                         requiredNotNull(client, failed);
                         return client.getKVClient()
-                                .get(ByteSequence.from(path, UTF_8))
+                                .get(ByteSequence.from(path, CHARSET))
                                 .get(DEFAULT_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS)
                                 .getKvs().stream()
-                                .mapToLong(keyValue -> Long.valueOf(keyValue.getValue().toString(UTF_8)))
+                                .mapToLong(keyValue -> Long.valueOf(keyValue.getValue().toString(CHARSET)))
                                 .findFirst().getAsLong();
                     }, retryPolicy);
         } catch (Exception e) {
@@ -301,8 +302,8 @@ public class JEtcdClientWrapper {
                     (Callable<Void>) () -> {
                         requiredNotNull(client, failed);
                         client.getKVClient()
-                                .put(ByteSequence.from(path, UTF_8),
-                                        ByteSequence.from(String.valueOf(path.hashCode()), UTF_8))
+                                .put(ByteSequence.from(path, CHARSET),
+                                        ByteSequence.from(String.valueOf(path.hashCode()), CHARSET))
                                 .get(DEFAULT_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
                         return null;
                     }, retryPolicy);
@@ -329,8 +330,8 @@ public class JEtcdClientWrapper {
                         keepAlive();
                         final long leaseId = globalLeaseId;
                         client.getKVClient()
-                                .put(ByteSequence.from(path, UTF_8)
-                                        , ByteSequence.from(String.valueOf(leaseId), UTF_8)
+                                .put(ByteSequence.from(path, CHARSET)
+                                        , ByteSequence.from(String.valueOf(leaseId), CHARSET)
                                         , PutOption.newBuilder().withLeaseId(leaseId).build())
                                 .get(DEFAULT_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
                         return leaseId;
@@ -470,7 +471,7 @@ public class JEtcdClientWrapper {
                     (Callable<Void>) () -> {
                         requiredNotNull(client, failed);
                         client.getKVClient()
-                                .delete(ByteSequence.from(path, UTF_8))
+                                .delete(ByteSequence.from(path, CHARSET))
                                 .get(DEFAULT_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
                         registeredPaths.remove(path);
                         return null;
@@ -636,12 +637,12 @@ public class JEtcdClientWrapper {
             return null;
         }
 
-        CompletableFuture<GetResponse> responseFuture = this.client.getKVClient().get(ByteSequence.from(key, UTF_8));
+        CompletableFuture<GetResponse> responseFuture = this.client.getKVClient().get(ByteSequence.from(key, CHARSET));
 
         try {
             List<KeyValue> result = responseFuture.get(DEFAULT_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS).getKvs();
             if (!result.isEmpty()) {
-                return result.get(0).getValue().toString(UTF_8);
+                return result.get(0).getValue().toString(CHARSET);
             }
         } catch (Exception e) {
             // ignore
@@ -656,7 +657,7 @@ public class JEtcdClientWrapper {
             return false;
         }
         CompletableFuture<PutResponse> putFuture =
-                this.client.getKVClient().put(ByteSequence.from(key, UTF_8), ByteSequence.from(value, UTF_8));
+                this.client.getKVClient().put(ByteSequence.from(key, CHARSET), ByteSequence.from(value, CHARSET));
         try {
             putFuture.get(DEFAULT_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
             return true;
@@ -675,8 +676,8 @@ public class JEtcdClientWrapper {
                         keepAlive();
                         final long leaseId = globalLeaseId;
                         client.getKVClient()
-                                .put(ByteSequence.from(key, UTF_8)
-                                        , ByteSequence.from(String.valueOf(value), UTF_8)
+                                .put(ByteSequence.from(key, CHARSET)
+                                        , ByteSequence.from(String.valueOf(value), CHARSET)
                                         , PutOption.newBuilder().withLeaseId(leaseId).build())
                                 .get(DEFAULT_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
                         return true;
